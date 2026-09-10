@@ -1,36 +1,21 @@
 name: CI
-
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-
+on: [push, pull_request]
 jobs:
-  validate:
+  quality:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install frontend dependencies
-        run: npm ci
-
-      - name: Lint frontend and server
-        run: npm run lint
-
-      - name: Build frontend
-        run: npm run build
-
-      - name: Install server dependencies
-        run: npm ci --prefix server
-
-      - name: Check server syntax
-        run: node --check server/*.js
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20', cache: 'npm' }
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run test
+      - run: npm run build
+      - name: Server checks
+        working-directory: server
+        run: |
+          npm ci
+          node --check index.js
+          node --check nvidia.js
+          node --check graph.js
+          node --check parser.js

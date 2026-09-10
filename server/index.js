@@ -1,75 +1,83 @@
 import express from 'express';
 import cors from 'cors';
-import { parseThread } from './parser.js';
-import { extractPropositions, deduplicatePropositions } from './nvidia.js';
+import helmet from 'helmet';
+import { parseDebateText } from './parser.js';
+import { analyzeDebate } from './nvidia.js';
 import { buildGraph } from './graph.js';
 
 const app = express();
-app.use(cors());
-app.use(express.json({ limit: '1mb' }));
 
-app.post('/analyze', async (req, res) => {
+// Helmet with relaxed settings so the API works correctly
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+}));
+
+app.use(cors({ origin: process.env.ALLOWED_ORIGIN || '*' }));
+app.use(express.json({ limit: '50kb' }));
+
+app.post('/api/analyze', async (req, res) => {
   try {
     const { rawText } = req.body;
 
-    if (!rawText || !rawText.trim()) {
+    if (!rawText || typeof rawText !== 'string' || !rawText.trim()) {
       return res.status(400).json({ error: 'No text provided.' });
     }
 
     if (rawText.length > 25000) {
       return res.status(413).json({
-        error: 'Thread is too large for one analysis. Keep it under 25,000 characters.',
+        error: 'Thread is too large. Keep it under 25,000 characters.',
       });
     }
 
-    console.log('Parsing thread...');
-    const comments = parseThread(rawText);
+    const comments = parseDebateText(rawText);
 
     if (comments.length < 2) {
       return res.status(400).json({
-        error: 'Add at least two comments using the format "username: comment text".',
+        error: 'Add at least two comments in the format "username: comment text".',
       });
     }
 
-    console.log(`Found ${comments.length} comments. Classifying intents...`);
-    const annotated = await extractPropositions(comments);
+    const { nodes: rawNodes, links: rawLinks } = await analyzeDebate(comments);
 
-    console.log('Deduplicating propositions...');
-    const deduplicated = await deduplicatePropositions(annotated);
-
-    if (!deduplicated.length) {
+    if (!rawNodes || rawNodes.length === 0) {
       return res.status(422).json({
         error: 'No logical claims were found. Try a thread with more specific arguments.',
       });
     }
 
-    console.log('Building graph...');
-    const graph = buildGraph(annotated, deduplicated, comments);
+    const graph = buildGraph(rawNodes, rawLinks);
 
-    console.log(`Done: ${graph.nodes.length} nodes, ${graph.links.length} links`);
-    res.json(graph);
+    graph.meta = {
+      comments: comments.length,
+      classified: rawNodes.length,
+      relationships: graph.links.length,
+      confidence: Math.max(35, Math.min(96, Math.round((rawNodes.length / comments.length) * 100)))
+    };
+
+    return res.json(graph);
   } catch (error) {
-    console.error('Error:', error.message);
-
-    if (error.message.includes('NVIDIA_API_KEY') || error.message.includes('API key')) {
+    if (error.message?.includes('NVIDIA_API_KEY') || error.message?.includes('API key')) {
       return res.status(500).json({
         error: 'Invalid or missing NVIDIA API key. Check your .env file.',
       });
     }
 
-    res.status(500).json({
+    return res.status(500).json({
       error: error.message || 'Internal server error.',
     });
   }
 });
 
-app.get('/health', (req, res) => {
+app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-  console.log(`Argument Replay Engine server running on http://localhost:${PORT}`);
-  console.log('POST /analyze');
-  console.log('GET  /health');
-});
+if (process.env.NODE_ENV !== 'production' || process.env.VERCEL !== '1') {
+  const PORT = process.env.PORT || 3001;
+  app.listen(PORT, () => {
+    process.stdout.write(`[server] Running on http://localhost:${PORT}\n`);
+  });
+}
+
+export default app;
