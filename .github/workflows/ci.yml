@@ -1,0 +1,21 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20', cache: 'npm' }
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run test
+      - run: npm run build
+      - name: Server checks
+        working-directory: server
+        run: |
+          npm ci
+          node --check index.js
+          node --check nvidia.js
+          node --check graph.js
+          node --check parser.js

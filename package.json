@@ -1,0 +1,43 @@
+{
+  "name": "argument-replay-engine",
+  "private": true,
+  "version": "0.0.0",
+  "description": "AI-powered debate analysis for turning discussion threads into argument maps and report-ready insights.",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "dev:frontend": "vite",
+    "dev:backend": "node --watch server/index.js",
+    "build": "vite build",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.3.0",
+    "axios": "^1.16.1",
+    "d3": "^7.9.0",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "serverless-http": "^4.0.0",
+    "tailwindcss": "^4.3.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^5.1.0",
+    "helmet": "^8.3.0",
+    "openai": "^6.39.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "concurrently": "^10.0.5",
+    "eslint": "^10.3.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.6.0",
+    "jsdom": "^30.0.1",
+    "vite": "^8.0.12",
+    "vitest": "^5.0.0"
+  }
+}
