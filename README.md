@@ -1,190 +1,203 @@
-<div align="center">
+# Argument Replay Engine
 
-# 🗣️ Argument Replay Engine
+Argument Replay Engine turns a discussion thread into an interactive map of claims and responses. Paste comments in `speaker: message` format, run the analysis, and inspect the resulting relationships as a D3 graph. The app also provides replay controls, speaker summaries, insight counts, and export options.
 
-**Argument Replay Engine turns a messy discussion thread into a readable map of claims, responses, questions, and supporting points.**
+[Open the live app](https://arguement-reply-engine-final.vercel.app)
 
-[![CI](https://github.com/sudharshan994/Argument-Replay-Engine/actions/workflows/ci.yml/badge.svg)](https://github.com/sudharshan994/Argument-Replay-Engine/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)](https://react.dev)
-[![Node.js](https://img.shields.io/badge/Node.js-Express_5-339933?logo=node.js&logoColor=white)](https://expressjs.com)
-[![D3.js](https://img.shields.io/badge/D3.js-7-F9A03C?logo=d3.js&logoColor=white)](https://d3js.org)
-[![NVIDIA NIM](https://img.shields.io/badge/NVIDIA-NIM_AI-76B900?logo=nvidia&logoColor=white)](https://build.nvidia.com)
+## Why I built it
 
-[Live Demo](https://arguement-reply-engine-final.vercel.app)
+In a long discussion, it is easy to lose track of which point is being challenged, supported, or repeated. I built this project to make that structure visible. The input stays simple, while the analysis adds a useful view of the conversation: who made each claim, how strong it was scored, which comments it relates to, and where the main points of disagreement are.
 
-</div>
+The project also gave me a practical way to connect a React interface, an Express API, an external language model API, and a D3 visualization in one application.
 
----
+## Features
 
-## 🎬 Demo
+- Paste a thread or load one of the Climate Change, AI Ethics, and Vaccine Policy presets.
+- Validate comment lines before submitting them for analysis.
+- Classify comments as claims, counter-claims, agreements, questions, tangents, or insults.
+- Display attacks, supports, questions, and restatements as different graph relationships.
+- Merge nodes with identical normalized claim text and remove duplicate links.
+- Replay the graph one node at a time with the Play/Pause control.
+- Drag and zoom graph nodes, and inspect a node's speaker, text, strength score, and detected fallacy.
+- View claim, attack, agreement, and average-strength summaries for each speaker.
+- Export the argument map as PNG, export the graph as JSON, or copy a short text summary.
+- Apply a saved or system light/dark theme preference.
 
-Paste a conversation into the editor or choose one of the built-in examples. The app sends the thread to the analysis API, then shows the result as an interactive graph with speaker summaries and relationship counts.
+## Tech stack
 
----
+### Frontend
 
-## 📖 Table of Contents
+- React 19
+- Vite 8
+- D3.js 7
+- Tailwind CSS 4
+- Axios
 
-- [Why It Matters](#why-it-matters)
-- [Features](#features)
-- [Architecture](#architecture)
-- [Tech Stack](#tech-stack)
-- [Getting Started](#getting-started)
-- [API Reference](#api-reference)
-- [Contributing](#contributing)
-- [License](#license)
+### Backend
 
----
+- Node.js with Express 5
+- NVIDIA NIM through the OpenAI-compatible SDK
+- `helmet` and `cors` for basic API middleware
+- `dotenv` for local environment variables
 
-## 💡 Why It Matters
+### Development
 
-Long discussion threads are difficult to review when claims, counterclaims, questions, and repeated points are all mixed together. **Argument Replay Engine** gives each comment a place in the conversation and makes the relationships easier to follow.
+- ESLint 10
+- Vitest 5 with jsdom
+- Vercel serverless deployment through `api/index.js`
 
-It is a small full-stack application: React and D3 on the frontend, an Express API in the middle, and NVIDIA NIM for classifying comments and identifying relationships.
+## How it works
 
----
+1. The frontend checks that the input contains at least two non-empty lines in `speaker: message` format.
+2. It sends the raw thread to `POST /api/analyze`.
+3. The Express route limits the request body to 50 KB and rejects threads longer than 25,000 characters.
+4. `server/parser.js` extracts the speaker and message from each valid line.
+5. `server/nvidia.js` asks NVIDIA NIM to classify each comment, score its strength, identify possible fallacies, and point to earlier comments it responds to.
+6. `server/graph.js` converts those results into canonical nodes and links. Duplicate claims and duplicate relationships are removed here.
+7. The frontend renders the response with `GraphCanvas`, `InsightPanel`, and `SpeakerPanel`.
 
-## ✨ Features
+The graph uses these relationship types:
 
-| Feature | Description |
-|---------|-------------|
-| 🕒 **Replay Mode** | Step-by-step timeline slider to watch arguments unfold chronologically with smooth D3 transitions. |
-| 🛡️ **Argument Strength Score** | Each comment receives a strength score and, when relevant, a detected fallacy. |
-| 👤 **Speaker Stance Summary** | Breakdowns per participant showing claims, attacks, agreements, and average strength scores. |
-| 📤 **Export Functionality** | One-click export of the D3 canvas (PNG), graph data (JSON), and shareable clipboard summaries. |
-| 🌗 **Dark / Light Theme** | The interface keeps the selected theme between visits. |
-| 📚 **Sample Debate Presets** | One-click loadable debates ("Climate change", "AI ethics", "Vaccine policy") for instant testing. |
-| 🌌 **Interactive Graph** | A D3 force layout shows the direction and type of each relationship. |
+| Type | Meaning |
+| --- | --- |
+| `attack` | A counter-claim or insult challenges another comment. |
+| `support` | An agreement supports another comment. |
+| `question` | A question points to the comment it asks about. |
+| `restatement` | A claim or tangent is represented as a neutral relationship. |
 
----
+## Project structure
 
-## 🏗️ Architecture
-
-```mermaid
-flowchart LR
-    A["👤 User\nPastes debate text"] --> B["💻 React Frontend\nVite + D3 Graph"]
-    B -->|POST /analyze| C["⚙️ Express API\nParser + Graph Builder"]
-    C -->|AI Classification| D["🧠 NVIDIA NIM\nLLM via OpenAI SDK"]
-    D -->|Classified nodes & links| C
-    C -->|JSON response| B
-    B --> E["🌌 Interactive\nArgument Map"]
-    B --> F["📊 SpeakerPanel"]
-    B --> G["📤 Export"]
+```text
+api/
+  index.js                 Vercel entry point for the Express app
+server/
+  graph.js                 Node and link normalization
+  index.js                 Express routes and API validation
+  nvidia.js                NVIDIA NIM request and response mapping
+  parser.js                `speaker: message` input parser
+src/
+  App.jsx                  Main input, analysis, replay, and theme state
+  components/
+    GraphCanvas.jsx        D3 graph and node interactions
+    InsightPanel.jsx       Counts, notable claims, and exports
+    SpeakerPanel.jsx       Per-speaker summaries
+  pages/
+    AccessibilityPage.jsx Accessibility settings page
+  __tests__/               Parser and graph tests
+vercel.json                Vercel rewrites for the app and API
 ```
 
----
+## Installation
 
-## 💻 Tech Stack
-
-| Layer | Technology |
-|-------|------------|
-| **Frontend** | React 19, Vite 8, D3.js 7, TailwindCSS 4 |
-| **Backend** | Express 5, Node.js |
-| **AI/ML** | NVIDIA NIM (via OpenAI-compatible SDK) |
-| **Code Quality** | ESLint 10, Vitest |
-| **CI/CD** | GitHub Actions |
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- Node.js 20+ and npm
-- NVIDIA NIM API key ([get one here](https://build.nvidia.com))
-
-### 1. Clone the repository
+You need Node.js 20 or newer and an NVIDIA NIM API key.
 
 ```bash
 git clone https://github.com/sudharshan994/Argument-Replay-Engine.git
 cd Argument-Replay-Engine
-```
-
-### 2. Configure environment
-
-```bash
-cp .env.example .env
-# Edit .env and add your NVIDIA_API_KEY
-```
-
-| Variable | Description |
-|----------|-------------|
-| `NVIDIA_API_KEY` | Your NVIDIA NIM API key |
-| `VITE_API_URL` | Backend URL (default: `http://localhost:3001`) |
-
-### 3. Install & Run
-
-We use `concurrently` to run both the frontend and backend with a single command.
-
-```bash
 npm install
+```
+
+Create a local `.env` file from `.env.example` and set the API key:
+
+```env
+NVIDIA_API_KEY=your_nvidia_api_key
+```
+
+`NVIDIA_MODEL` is optional. When it is not set, the server uses `meta/llama-3.2-11b-vision-instruct`.
+
+`VITE_API_URL` is also optional. During local development, leaving it unset lets Vite proxy `/api` requests to `http://localhost:3001`. Set it when the frontend needs to call an API running at a different URL.
+
+## Running locally
+
+Start the frontend and backend together:
+
+```bash
 npm run dev
 ```
 
-The frontend runs at `http://127.0.0.1:5173` and the API at `http://localhost:3001`.
+The frontend runs on `http://localhost:5173` and the local API runs on `http://localhost:3001`.
 
----
+You can also run them separately:
 
-## 🔌 API Reference
+```bash
+npm run dev:frontend
+npm run dev:backend
+```
 
-### `POST /analyze`
+## API
 
-Analyze a debate thread and return an argument graph.
+### `POST /api/analyze`
 
-**Request:**
+Request:
+
 ```json
 {
-  "rawText": "Alice: Claim text\nBob: Response text"
+  "rawText": "Alice: This is my claim.\nBob: I disagree with that claim."
 }
 ```
 
-**Response:**
+The response contains `nodes`, `links`, and `meta` fields:
+
 ```json
 {
   "nodes": [
-    { 
-      "id": "1", 
-      "label": "Claim text", 
-      "type": "claim", 
+    {
+      "id": "node-0",
       "speaker": "Alice",
-      "strengthScore": 85,
+      "text": "Alice makes a claim.",
+      "type": "claim",
+      "strengthScore": 50,
       "fallacyDetected": null
     }
   ],
   "links": [
-    { "source": "2", "target": "1", "type": "attack" }
+    {
+      "source": "node-1",
+      "target": "node-0",
+      "type": "attack"
+    }
   ],
   "meta": {
     "comments": 2,
     "classified": 2,
     "relationships": 1,
-    "confidence": 0.85
+    "confidence": 96
   }
 }
 ```
 
----
+### `GET /api/health`
 
-## 🤝 Contributing
+Returns a small health response with `status` and a timestamp. This is useful for checking that the API is reachable without making an analysis request.
 
-Contributions are welcome!
+## Useful commands
 
-1. **Fork** the repository.
-2. Create your **Feature Branch** (`git checkout -b feature/AmazingFeature`).
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`).
-4. **Push** to the branch (`git push origin feature/AmazingFeature`).
-5. Open a **Pull Request**. Ensure the CI pipeline passes.
+```bash
+npm run build   # build the frontend for production
+npm run lint    # run ESLint
+npm test        # run the Vitest test suite
+```
 
----
+## Implementation notes
 
-## 📄 License
+The model is asked to return one JSON object per input comment. The server strips simple Markdown code fences if the model includes them, extracts the JSON payload, validates the result, and maps model IDs to canonical graph IDs. Links that point to missing nodes or create self-loops after deduplication are discarded.
 
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+The graph is recreated when the graph data or replay step changes. D3 handles the force simulation, zooming, dragging, curved relationship paths, and the node tooltip. PNG export clones the SVG first, so exporting does not modify the graph currently on screen.
 
----
+## Things I learned
 
-<div align="center">
+The most important part of this project was keeping the boundaries between parsing, classification, graph construction, and rendering clear. The model output is not treated as the final graph: it still needs validation and normalization before D3 can use it. I also had to account for the difference between the local Express process and the Vercel function entry point when deploying the API.
 
-**Built with 💻 by [Vellore Venkateshan Sudharshan](https://github.com/sudharshan994)**
+## Possible next steps
 
-</div>
+- Add more focused tests for malformed model responses and API error cases.
+- Show an inline loading state with more detail for slow model requests.
+- Add a small request history so users can compare multiple analyses.
+- Improve graph layout controls for very large discussion threads.
+- Add a deployment check that exercises both the frontend and `/api/health` route.
+
+## Author
+
+Built by [Vellore Venkateshan Sudharshan](https://github.com/sudharshan994).
+
+The project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
