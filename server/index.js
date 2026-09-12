@@ -16,7 +16,7 @@ app.use(helmet({
 app.use(cors({ origin: process.env.ALLOWED_ORIGIN || '*' }));
 app.use(express.json({ limit: '50kb' }));
 
-app.post('/api/analyze', async (req, res) => {
+app.post(['/api/analyze', '/api/index.js'], async (req, res) => {
   try {
     const { rawText } = req.body;
 

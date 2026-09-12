@@ -130,7 +130,10 @@ export default function App() {
     setPlaying(false);
 
     try {
-      const API_URL = import.meta.env.VITE_API_URL || '';
+      const configuredApiUrl = import.meta.env.VITE_API_URL?.trim() || '';
+      const API_URL = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(configuredApiUrl)
+        ? ''
+        : configuredApiUrl;
       const { data } = await axios.post(`${API_URL}/api/analyze`, { rawText: textToAnalyze }, { timeout: 120000 });
       if (data.error) {
         setError(data.error);
@@ -180,7 +183,7 @@ export default function App() {
                 </div>
                 <button 
                   id="analyze-btn"
-                  onClick={analyze}
+                  onClick={() => analyze()}
                   disabled={!inputStats.ready || loading}
                   className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
